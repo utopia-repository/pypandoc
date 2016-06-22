@@ -1,0 +1,5 @@
+pypandoc (1.1.3+ds0-1) unstable; urgency=low
+
+  * Initial packaging. Closes: #794109
+
+ -- Elena Grandi <valhalla-d@trueelena.org>  Thu, 22 Jun 2016 13:05:04 +0200

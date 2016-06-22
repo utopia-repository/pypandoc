@@ -6,3 +6,6 @@
 pypandoc_1.1.3+ds0.orig.tar.xz
 bdebb0f59168b378d652ab0326aeee7e53badbc2
 14248
+debianTag="debian/%e%v"
+patchedTag="patched/%e%v"
+upstreamTag="upstream/%e%u"

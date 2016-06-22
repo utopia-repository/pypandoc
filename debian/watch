@@ -1,0 +1,3 @@
+version=3
+opts="repacksuffix=+ds0,compression=xz" \
+http://pypi.debian.net/pypandoc/pypandoc-(.+)\.(?:zip|tgz|tbz|txz|(?:tar\.(?:gz|bz2|xz)))

@@ -1,0 +1,2 @@
+pypandoc.egg-info/*
+.pybuild/

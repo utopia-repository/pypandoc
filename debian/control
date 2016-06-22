@@ -1,0 +1,47 @@
+Source: pypandoc
+Maintainer: Elena Grandi <valhalla-d@trueelena.org>
+Section: python
+Priority: optional
+Build-Depends:
+ debhelper (>= 9),
+ dh-python,
+ lmodern,
+ pandoc,
+ pandoc-citeproc,
+ python-all (>= 2.6.6-3),
+ python-setuptools (>= 0.6b3),
+ python3-all,
+ python3-setuptools,
+ texlive-fonts-recommended,
+ texlive-latex-extra,
+ texlive-latex-recommended,
+ texlive-luatex,
+ texlive-xetex
+Standards-Version: 3.9.6
+Homepage: https://github.com/bebraw/pypandoc
+Vcs-Git: https://anonscm.debian.org/git/python-modules/packages/pypandoc.git
+Vcs-Browser: https://anonscm.debian.org/cgit/python-modules/packages/pypandoc.git
+
+Package: python-pypandoc
+Architecture: all
+Depends:
+ pandoc,
+ ${misc:Depends},
+ ${python:Depends}
+Description: Thin wrapper for pandoc (Python 2.x)
+ pypandoc provides a Python interface to pandoc, a universal document
+ converter with support for most markup languages.
+ .
+ This package provides Python 2.x version of pypandoc.
+
+Package: python3-pypandoc
+Architecture: all
+Depends:
+ pandoc,
+ ${misc:Depends},
+ ${python3:Depends}
+Description: Thin wrapper for pandoc (Python 3.x)
+ pypandoc provides a Python interface to pandoc, a universal document
+ converter with support for most markup languages.
+ .
+ This package provides Python 3.x version of pypandoc.
