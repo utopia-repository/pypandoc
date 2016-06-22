@@ -1,5 +1,6 @@
 Source: pypandoc
 Maintainer: Elena Grandi <valhalla-d@trueelena.org>
+Uploaders: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>
 Section: python
 Priority: optional
 Build-Depends:
