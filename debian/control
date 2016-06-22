@@ -17,7 +17,7 @@ Build-Depends:
  texlive-latex-recommended,
  texlive-luatex,
  texlive-xetex
-Standards-Version: 3.9.6
+Standards-Version: 3.9.8
 Homepage: https://github.com/bebraw/pypandoc
 Vcs-Git: https://anonscm.debian.org/git/python-modules/packages/pypandoc.git
 Vcs-Browser: https://anonscm.debian.org/cgit/python-modules/packages/pypandoc.git

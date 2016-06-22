@@ -17,7 +17,7 @@ Copyright: (c) 2011-2016 Juho Vepsäläinen
                2001, Nathaniel Gray <n8gray@caltech.edu>
 License: Expat and BSD-3-clause
 
-Files: py3compat.py
+Files: pypandoc/py3compat.py
 Copyright: (c) 2008-2014, IPython Development Team
                2001-2007, Fernando Perez <fernando.perez@colorado.edu>
                2001, Janko Hauser <jhauser@zscout.de>
