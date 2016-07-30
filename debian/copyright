@@ -3,7 +3,7 @@ Upstream-Name: pypandoc
 Upstream-Contact: Juho Vepsäläinen
 Author: Juho Vepsäläinen
 Source: https://github.com/bebraw/pypandoc
-Files-Excluded: pypandoc.egg-info PKG-INFO pypandoc/files/*
+Files-Excluded: pypandoc.egg-info PKG-INFO
 
 Files: *
 Copyright: (c) 2011-2016 Juho Vepsäläinen
