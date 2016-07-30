@@ -1,23 +1,29 @@
 # -*- coding: utf-8 -*-
-from __future__ import with_statement, absolute_import
+from __future__ import with_statement, absolute_import, print_function
 
 import subprocess
 import sys
 import textwrap
 import os
 import re
+import warnings
+import tempfile
 
 from .py3compat import string_types, cast_bytes, cast_unicode
 
+from pypandoc.pandoc_download import DEFAULT_TARGET_FOLDER, download_pandoc
+
 __author__ = u'Juho Vepsäläinen'
-__version__ = '1.1.3'
+__version__ = '1.2.0'
 __license__ = 'MIT'
-__all__ = ['convert', 'get_pandoc_formats', 'get_pandoc_version', 'get_pandoc_path']
+__all__ = ['convert', 'convert_file', 'convert_text',
+           'get_pandoc_formats', 'get_pandoc_version', 'get_pandoc_path',
+           'download_pandoc']
 
 
 def convert(source, to, format=None, extra_args=(), encoding='utf-8',
             outputfile=None, filters=None):
-    """Converts given `source` from `format` `to` another.
+    """Converts given `source` from `format` to `to` (deprecated).
 
     :param str source: Unicode string or bytes or a file path (see encoding)
 
@@ -45,24 +51,149 @@ def convert(source, to, format=None, extra_args=(), encoding='utf-8',
     :raises OSError: if pandoc is not found; make sure it has been installed and is available at
             path.
     """
-    return _convert(_read_file, _process_file, source, to,
-                    format, extra_args, encoding=encoding,
-                    outputfile=outputfile, filters=filters)
+    msg = ("Due to possible ambiguity, 'convert()' is deprecated. "
+           "Use 'convert_file()'  or 'convert_text()'.")
+    warnings.warn(msg, DeprecationWarning, stacklevel=2)
+
+    path = _identify_path(source)
+    if path:
+        format = _identify_format_from_path(source, format)
+        input_type = 'path'
+    else:
+        source = _as_unicode(source, encoding)
+        input_type = 'string'
+        if not format:
+            raise RuntimeError("Format missing, but need one (identified source as text as no "
+                               "file with that name was found).")
+    return _convert_input(source, format, input_type, to, extra_args=extra_args,
+                          outputfile=outputfile, filters=filters)
 
 
-def _convert(reader, processor, source, to, format=None, extra_args=(), encoding=None,
-             outputfile=None, filters=None):
-    source, format, input_type = reader(source, format, encoding=encoding)
+def convert_text(source, to, format, extra_args=(), encoding='utf-8',
+                 outputfile=None, filters=None):
 
-    formats = {
-        'dbk': 'docbook',
-        'md': 'markdown',
-        'rest': 'rst',
-        'tex': 'latex',
-    }
+    """Converts given `source` from `format` to `to`.
 
-    format = formats.get(format, format)
-    to = formats.get(to, to)
+    :param str source: Unicode string or bytes (see encoding)
+
+    :param str to: format into which the input should be converted; can be one of
+            `pypandoc.get_pandoc_formats()[1]`
+
+    :param str format: the format of the inputs; can be one of `pypandoc.get_pandoc_formats()[1]`
+
+    :param list extra_args: extra arguments (list of strings) to be passed to pandoc
+            (Default value = ())
+
+    :param str encoding: the encoding of the input bytes (Default value = 'utf-8')
+
+    :param str outputfile: output will be written to outfilename or the converted content
+            returned if None (Default value = None)
+
+    :param list filters: pandoc filters e.g. filters=['pandoc-citeproc']
+
+    :returns: converted string (unicode) or an empty string if an outputfile was given
+    :rtype: unicode
+
+    :raises RuntimeError: if any of the inputs are not valid of if pandoc fails with an error
+    :raises OSError: if pandoc is not found; make sure it has been installed and is available at
+            path.
+    """
+    source = _as_unicode(source, encoding)
+    return _convert_input(source, format, 'string', to, extra_args=extra_args,
+                          outputfile=outputfile, filters=filters)
+
+
+def convert_file(source_file, to, format=None, extra_args=(), encoding='utf-8',
+                 outputfile=None, filters=None):
+    """Converts given `source` from `format` to `to`.
+
+    :param str source_file: file path (see encoding)
+
+    :param str to: format into which the input should be converted; can be one of
+            `pypandoc.get_pandoc_formats()[1]`
+
+    :param str format: the format of the inputs; will be inferred from the source_file with an
+            known filename extension; can be one of `pypandoc.get_pandoc_formats()[1]`
+            (Default value = None)
+
+    :param list extra_args: extra arguments (list of strings) to be passed to pandoc
+            (Default value = ())
+
+    :param str encoding: the encoding of the file or the input bytes (Default value = 'utf-8')
+
+    :param str outputfile: output will be written to outfilename or the converted content
+            returned if None (Default value = None)
+
+    :param list filters: pandoc filters e.g. filters=['pandoc-citeproc']
+
+    :returns: converted string (unicode) or an empty string if an outputfile was given
+    :rtype: unicode
+
+    :raises RuntimeError: if any of the inputs are not valid of if pandoc fails with an error
+    :raises OSError: if pandoc is not found; make sure it has been installed and is available at
+            path.
+    """
+    if not _identify_path(source_file):
+        raise RuntimeError("source_file is not a valid path")
+    format = _identify_format_from_path(source_file, format)
+    return _convert_input(source_file, format, 'path', to, extra_args=extra_args,
+                          outputfile=outputfile, filters=filters)
+
+
+def _identify_path(source):
+    try:
+        path = os.path.exists(source)
+    except UnicodeEncodeError:
+        path = os.path.exists(source.encode('utf-8'))
+    except ValueError:
+        path = False
+    except TypeError:
+        # source is None...
+        path = False
+    return path
+
+
+def _identify_format_from_path(sourcefile, format):
+    return format or os.path.splitext(sourcefile)[1].strip('.')
+
+
+def _as_unicode(source, encoding):
+    if encoding != 'utf-8':
+        # if a source and a different encoding is given, try to decode the the source into a
+        # unicode string
+        try:
+            source = cast_unicode(source, encoding=encoding)
+        except (UnicodeDecodeError, UnicodeEncodeError):
+            pass
+    return source
+
+
+def _identify_input_type(source, format, encoding='utf-8'):
+    path = _identify_path(source)
+    if path:
+        format = _identify_format_from_path(source, format)
+        input_type = 'path'
+    else:
+        source = _as_unicode(source, encoding)
+        input_type = 'string'
+    return source, format, input_type
+
+
+def _validate_formats(format, to, outputfile):
+    def normalize_format(fmt):
+        formats = {
+            'dbk': 'docbook',
+            'md': 'markdown',
+            'tex': 'latex',
+        }
+        fmt = formats.get(fmt, fmt)
+        # rst format can have extensions
+        if fmt[:4] == "rest":
+            fmt = "rst"+fmt[4:]
+        return fmt
+
+    format = normalize_format(format)
+    to = normalize_format(to)
 
     if not format:
         raise RuntimeError('Missing format!')
@@ -82,47 +213,37 @@ def _convert(reader, processor, source, to, format=None, extra_args=(), encoding
 
     # list from https://github.com/jgm/pandoc/blob/master/pandoc.hs
     # `[...] where binaries = ["odt","docx","epub","epub3"] [...]`
-    if base_to_format in ["odt", "docx", "epub", "epub3"] and not outputfile:
+    # pdf has the same restriction
+    if base_to_format in ["odt", "docx", "epub", "epub3", "pdf"] and not outputfile:
         raise RuntimeError(
             'Output to %s only works by using a outputfile.' % base_to_format
         )
 
-    return processor(source, input_type, to, format, extra_args,
-                     outputfile=outputfile, filters=filters)
+    if base_to_format == "pdf":
+        # pdf formats needs to actually have a to format of latex and a
+        # filename with an ending pf .pdf
+        if outputfile[-4:] != ".pdf":
+            raise RuntimeError('PDF output needs an outputfile with ".pdf" as a fileending.')
+        # to is not allowed to contain pdf, but must point to latex
+        # it's also not allowed to contain extensions according to the docs
+        if to != base_to_format:
+            raise RuntimeError("PDF output can't contain any extensions: %s" % to)
+        to = "latex"
+
+    return format, to
 
 
-def _read_file(source, format, encoding='utf-8'):
-    try:
-        path = os.path.exists(source)
-    except UnicodeEncodeError:
-        path = os.path.exists(source.encode('utf-8'))
-    except ValueError:
-        path = ''
-    if path:
-        format = format or os.path.splitext(source)[1].strip('.')
-        input_type = 'path'
-    else:
-        if encoding != 'utf-8':
-            # if a source and a different encoding is given, try to decode the the source into a
-            # unicode string
-            try:
-                source = cast_unicode(source, encoding=encoding)
-            except (UnicodeDecodeError, UnicodeEncodeError):
-                pass
-        input_type = 'string'
-    return source, format, input_type
-
-
-def _process_file(source, input_type, to, format, extra_args, outputfile=None,
-                  filters=None):
+def _convert_input(source, format, input_type, to, extra_args=(), outputfile=None,
+                   filters=None):
     _ensure_pandoc_path()
+
+    format, to = _validate_formats(format, to, outputfile)
+
     string_input = input_type == 'string'
     input_file = [source] if not string_input else []
     args = [__pandoc_path, '--from=' + format]
 
-    # #59 - pdf output won't work with `--to` set!
-    if to is not 'pdf':
-        args.append('--to=' + to)
+    args.append('--to=' + to)
 
     args += input_file
 
@@ -138,11 +259,18 @@ def _process_file(source, input_type, to, format, extra_args, outputfile=None,
         f = ['--filter=' + x for x in filters]
         args.extend(f)
 
+    # To get access to pandoc-citeproc when we use a included copy of pandoc,
+    # we need to add the pypandoc/files dir to the PATH
+    new_env = os.environ.copy()
+    files_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
+    new_env["PATH"] = new_env.get("PATH", "") + os.pathsep + files_path
+
     p = subprocess.Popen(
         args,
         stdin=subprocess.PIPE if string_input else None,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
+        stderr=subprocess.PIPE,
+        env=new_env)
 
     # something else than 'None' indicates that the process already terminated
     if not (p.returncode is None):
@@ -217,10 +345,14 @@ def get_pandoc_formats():
 # copied and adapted from jupyter_nbconvert/utils/pandoc.py, Modified BSD License
 
 def _get_pandoc_version(pandoc_path):
+    new_env = os.environ.copy()
+    if 'HOME' not in os.environ:
+        new_env['HOME'] = tempfile.gettempdir()
     p = subprocess.Popen(
         [pandoc_path, '--version'],
         stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE)
+        stdout=subprocess.PIPE,
+        env=new_env)
     comm = p.communicate()
     out_lines = comm[0].decode().splitlines(False)
     if p.returncode != 0 or len(out_lines) == 0:
@@ -262,7 +394,8 @@ def get_pandoc_path():
     to be callable (i.e. we could get version information from `pandoc --version`).
     If `PYPANDOC_PANDOC` is set and valid, it will return that value. If the environment
     variable is not set, either the full path to the included pandoc or the pandoc in
-    `PATH` (whatever is the higher version) will be returned.
+    `PATH` or a pandoc in some of the more usual (platform specific) install locations
+    (whatever is the higher version) will be returned.
 
     If a cached path is found, it will return the cached path and stop probing Pandoc
     (unless :func:`clean_pandocpath_cache()` is called).
@@ -280,19 +413,42 @@ def _ensure_pandoc_path():
         included_pandoc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                        "files", "pandoc")
         search_paths = ["pandoc",  included_pandoc]
+        pf = "linux" if sys.platform.startswith("linux") else sys.platform
+        try:
+            search_paths.append(os.path.join(DEFAULT_TARGET_FOLDER[pf], "pandoc"))
+        except:
+            # not one of the know platforms...
+            pass
+        if pf == "linux":
+            # Currently we install into ~/bin, but this is equally likely...
+            search_paths.append("~/.bin/pandoc")
+        # Also add the interpreter script path, as that's where pandoc could be
+        # installed if it's an environment and the environment wasn't activated
+        if pf == "win32":
+            search_paths.append(os.path.join(sys.exec_prefix, "Scripts", "pandoc"))
+        # bin can also be used on windows (conda at leats has it in path), so
+        # include it unconditionally
+        search_paths.append(os.path.join(sys.exec_prefix, "bin", "pandoc"))
         # If a user added the complete path to pandoc to an env, use that as the
         # only way to get pandoc so that a user can overwrite even a higher
         # version in some other places.
         if os.getenv('PYPANDOC_PANDOC', None):
             search_paths = [os.getenv('PYPANDOC_PANDOC')]
         for path in search_paths:
+            # Needed for windows and subprocess which can't expand it on it's
+            # own...
+            path = os.path.expanduser(path)
             curr_version = [0, 0, 0]
             version_string = "0.0.0"
+            # print("Trying: %s" % path)
             try:
                 version_string = _get_pandoc_version(path)
-            except:
+            except Exception as e:
                 # we can't use that path...
-                # print(e)
+                if os.path.exists(path):
+                    # path exist but is not useable -> not executable?
+                    print("Found %s, but not using it because of an error:" % (path), file=sys.stderr)
+                    print(e, file=sys.stderr)
                 continue
             version = [int(x) for x in version_string.split(".")]
             while len(version) < len(curr_version):
@@ -334,7 +490,8 @@ def _ensure_pandoc_path():
 
             """))
             raise OSError("No pandoc was found: either install pandoc and add it\n"
-                          "to your PATH or install pypandoc wheels with included pandoc.")
+                          "to your PATH or or call pypandoc.download_pandoc(...) or\n"
+                          "install pypandoc wheels with included pandoc.")
 
 
 # -----------------------------------------------------------------------------
