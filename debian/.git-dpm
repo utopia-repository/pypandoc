@@ -2,10 +2,10 @@
 262c7e93b83a7f6720af2768e6d5ff006e7ade74
 262c7e93b83a7f6720af2768e6d5ff006e7ade74
 262c7e93b83a7f6720af2768e6d5ff006e7ade74
-262c7e93b83a7f6720af2768e6d5ff006e7ade74
-pypandoc_1.1.3+ds0.orig.tar.xz
-bdebb0f59168b378d652ab0326aeee7e53badbc2
-14248
+b70546c9a83595b0717b8ecccd10bb141641161a
+pypandoc_1.2.0+ds0.orig.tar.xz
+3cfad8b4f91365fe1136d5bb2acb3efe6dbabf0c
+17116
 debianTag="debian/%e%v"
 patchedTag="patched/%e%v"
 upstreamTag="upstream/%e%u"
