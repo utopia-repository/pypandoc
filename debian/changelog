@@ -1,4 +1,4 @@
-pypandoc (1.2.0+ds0-2utopia1) unstable; urgency=medium
+pypandoc (1.2.0+ds0-2~utopia1) unstable; urgency=medium
 
   [ Elena Grandi ]
   * Minor packaging fixes (docs, watchfile)
